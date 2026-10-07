@@ -18,7 +18,7 @@ A weekly scheduled run re-scans `main`, because new CVEs are published for code 
 
 ## See it working
 
-The open pull request **"demo: introduce insecure changes"** adds three deliberate problems:
+The open pull request [**#3 "demo: introduce insecure changes"**](https://github.com/SV-Diablo/devsecops-pipeline/pull/3) adds three deliberate problems:
 
 1. An endpoint that builds SQL with string formatting (SQL injection).
 2. A hard-coded API key (fake, generated for this demo).
