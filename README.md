@@ -31,7 +31,9 @@ Each one is caught by a different control and the pull request cannot be merged.
 - **Actions pinned by commit SHA**, not by tag: a moved or compromised tag cannot change what runs. Dependabot keeps the SHAs current.
 - **Least-privilege `GITHUB_TOKEN`**: read-only by default; only the jobs that upload results get `security-events: write` or `pull-requests: write`.
 - **Full-history secret scan** (`fetch-depth: 0`): a secret deleted in a later commit is still exposed in git history.
-- **Fail closed**: every control is a required check on `main` through branch protection.
+- **Fail closed**: every control is a required check on `main` through branch protection, and no one can push to `main` directly.
+- **Owner approval**: `CODEOWNERS` assigns @SV-Diablo as reviewer of every file, so an outside pull request cannot be merged without the owner's approval, even with all checks green.
+- **Fork workflows need approval**: Actions triggered by pull requests from outside contributors do not run until the owner approves them, so a fork cannot use the pipeline to run its own code.
 
 ## Run locally
 
