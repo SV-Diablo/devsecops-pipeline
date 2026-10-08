@@ -28,6 +28,17 @@ variable "create_github_oidc_provider" {
   default     = true
 }
 
+variable "availability_zone_suffixes" {
+  description = "Exactly two zone letters inside the region (us-east-1 + a = us-east-1a)."
+  type        = list(string)
+  default     = ["a", "b"]
+
+  validation {
+    condition     = length(var.availability_zone_suffixes) == 2
+    error_message = "The network layout uses exactly two Availability Zones."
+  }
+}
+
 variable "vpc_cidr" {
   description = "CIDR block for the VPC."
   type        = string

@@ -1,5 +1,12 @@
+# Zones are pinned by name, so the subnet layout never changes on its own when AWS
+# adds a new Availability Zone to the region.
 data "aws_availability_zones" "available" {
   state = "available"
+
+  filter {
+    name   = "zone-name"
+    values = [for suffix in var.availability_zone_suffixes : "${var.region}${suffix}"]
+  }
 }
 
 resource "aws_vpc" "main" {
@@ -109,6 +116,10 @@ resource "aws_vpc_security_group_ingress_rule" "api" {
 }
 
 # Outbound 443 only: pulling the image from ECR and shipping logs to CloudWatch.
+# Accepted exception: AWS service endpoints have no fixed IPs. Closing this would need
+# VPC interface endpoints for ecr.api, ecr.dkr and logs (~USD 22/month), more than the
+# whole demo. Port and protocol stay restricted.
+#trivy:ignore:AWS-0104
 resource "aws_vpc_security_group_egress_rule" "https" {
   security_group_id = aws_security_group.api.id
   description       = "HTTPS to AWS APIs (ECR, CloudWatch Logs)"
