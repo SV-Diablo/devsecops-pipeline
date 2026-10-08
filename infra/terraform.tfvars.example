@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars (git-ignored) and adjust.
+
+region = "us-east-1"
+
+# Your public IP, so only you can reach the API: curl -s https://checkip.amazonaws.com
+allowed_ingress_cidrs = ["203.0.113.10/32"]
+
+# 0 for the first apply; 1 after CI has pushed the first image.
+desired_count = 0
+
+# false if the AWS account already has the GitHub OIDC provider.
+create_github_oidc_provider = true
