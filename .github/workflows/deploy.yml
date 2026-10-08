@@ -1,0 +1,87 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "Dockerfile"
+      - "requirements*.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false # never cancel a deploy half-way
+
+jobs:
+  deploy:
+    name: Build, scan and deploy to ECS
+    # Skips cleanly until the AWS infrastructure exists and the variables are set.
+    if: vars.AWS_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    # The OIDC trust policy only accepts this environment; it can also require
+    # the owner's approval before anything reaches AWS.
+    environment: production
+    permissions:
+      contents: read
+      id-token: write # request the OIDC token; no AWS keys are stored in GitHub
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      # Tag = commit SHA; the repository is immutable, so a tag always means one build.
+      - name: Build image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+        run: |
+          echo "IMAGE=$REGISTRY/$REPOSITORY:$GITHUB_SHA" >> "$GITHUB_ENV"
+          docker build --pull -t "$REGISTRY/$REPOSITORY:$GITHUB_SHA" .
+
+      # Gate: an image with fixable HIGH or CRITICAL vulnerabilities never leaves the runner.
+      - name: Scan image (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Push image
+        run: docker push "$IMAGE"
+
+      - name: Fetch current task definition
+        env:
+          TASK_FAMILY: ${{ vars.ECS_TASK_FAMILY }}
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$TASK_FAMILY" \
+            --query taskDefinition > task-definition.json
+
+      - name: Render task definition with the new image
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@8d79160660ad39c402a16e5fc7cd2a32e8f7d6b7 # v1.9.1
+        with:
+          task-definition: task-definition.json
+          container-name: api
+          image: ${{ env.IMAGE }}
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@c465972ecbd160473f22e683363b422a5412a3de # v2.6.3
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          cluster: ${{ vars.ECS_CLUSTER }}
+          service: ${{ vars.ECS_SERVICE }}
+          wait-for-service-stability: true
