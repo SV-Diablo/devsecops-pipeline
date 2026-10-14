@@ -31,3 +31,13 @@ def by_criticality(level: str):
         "SELECT id, hostname, owner, criticality FROM assets WHERE criticality = ?", (level,)
     ).fetchall()
     return jsonify([dict(r) for r in rows])
+
+
+@bp.get("/assets/search")
+def search_assets():
+    # DEMO ONLY: SQL built with string formatting -> SQL injection.
+    q = request.args.get("q", "")
+    rows = get_db().execute(
+        f"SELECT id, hostname, owner, criticality FROM assets WHERE hostname LIKE '%{q}%'"
+    ).fetchall()
+    return jsonify([dict(r) for r in rows])

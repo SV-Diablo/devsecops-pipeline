@@ -1,1 +1,2 @@
 flask>=3.1.3,<4
+PyYAML==5.3  # DEMO ONLY: version with known CVEs
